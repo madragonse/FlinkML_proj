@@ -5,6 +5,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.ml.classification.logisticregression.LogisticRegressionModel;
 import org.apache.flink.ml.clustering.kmeans.KMeans;
 import org.apache.flink.ml.clustering.kmeans.KMeansModel;
 import org.apache.flink.ml.classification.logisticregression.LogisticRegression;
@@ -49,30 +50,28 @@ public class QuickStart {
         DataStream<Row> immStream = env.fromCollection(records);
 
         DataStream<Row> inputStream = immStream
-                .filter(new FilterFunction<Row>() {
-            @Override
-            public boolean filter(Row row) throws Exception {
-                for (int i = 0; i < row.getArity(); i++)
-                    if (row.getFieldAs(i).toString().length() == 0)
-                        return false;
-                return true;
-            }
-        })
-                .map(new MapFunction<Row, Row>() {
-                         @Override
-                         public Row map(Row row) throws Exception {
-                             return Row.of(Vectors.dense(Double.parseDouble(row.getFieldAs(1)), Double.parseDouble(row.getFieldAs(2))), Integer.parseInt(row.getFieldAs(7)));
-                         }
-                     },
+                .filter((FilterFunction<Row>) row -> {
+                    for (int i = 0; i < row.getArity(); i++)
+                        if (row.getFieldAs(i).toString().length() == 0)
+                            return false;
+                    return true;
+                })
+                .map((MapFunction<Row, Row>) row -> Row.of(Vectors.dense(Double.parseDouble(row.getFieldAs(1)), Double.parseDouble(row.getFieldAs(2)), Double.parseDouble(row.getFieldAs(7))), row.getFieldAs(5).toString()),
                         new RowTypeInfo(
-                            new TypeInformation[]{
-                                TypeInformation.of(DenseVector.class),
-                                Types.INT
-                            },
-                            new String[] {"Features", "Pred"}
+                                new TypeInformation[]{
+                                        TypeInformation.of(DenseVector.class),
+                                        Types.STRING
+                                },
+                                new String[] {"features", "label"}
                         ));
 
         Table input = tEnv.fromDataStream(inputStream);
+
+        LogisticRegression reg = new LogisticRegression();
+        LogisticRegressionModel model = reg.fit(input);
+        Table output = model.transform(input)[0];
+
+        output.execute().print();
 
     }
 }
