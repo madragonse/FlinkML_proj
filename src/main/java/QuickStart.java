@@ -1,5 +1,6 @@
 import org.apache.flink.ml.clustering.kmeans.KMeans;
 import org.apache.flink.ml.clustering.kmeans.KMeansModel;
+import org.apache.flink.ml.classification.logisticregression.LogisticRegression;
 import org.apache.flink.ml.linalg.DenseVector;
 import org.apache.flink.ml.linalg.Vectors;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -8,6 +9,11 @@ import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.CloseableIterator;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.util.ArrayList;
+import java.util.List;
 
 public class QuickStart {
     public static void main(String[] args) {
@@ -19,6 +25,24 @@ public class QuickStart {
         String predictionCol = "prediction";
 
         // Generate train data and predict data as DataStream.
+        List<String[]> records = new ArrayList<>();
+        boolean header = true;
+        try(BufferedReader br = new BufferedReader(new FileReader("beers.csv"))){
+            String line;
+            while((line = br.readLine()) != null){
+                if(header){
+                    header = false;
+                    continue;
+                }
+                String[] values = line.split(",");
+                records.add(values);
+            }
+        }
+        catch (Exception ignored) {
+
+        }
+
+
         DataStream<DenseVector> inputStream = env.fromElements(
                 Vectors.dense(0.0, 0.0),
                 Vectors.dense(0.0, 0.3),
