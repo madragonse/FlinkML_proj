@@ -1,27 +1,22 @@
-import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
-import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
-import org.apache.flink.ml.classification.logisticregression.LogisticRegressionModel;
-import org.apache.flink.ml.clustering.kmeans.KMeans;
-import org.apache.flink.ml.clustering.kmeans.KMeansModel;
-import org.apache.flink.ml.classification.logisticregression.LogisticRegression;
+import org.apache.flink.ml.classification.naivebayes.NaiveBayes;
+import org.apache.flink.ml.classification.naivebayes.NaiveBayesModel;
 import org.apache.flink.ml.linalg.DenseVector;
 import org.apache.flink.ml.linalg.Vectors;
-import org.apache.flink.shaded.guava30.com.google.common.collect.MapDifference;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
-import org.apache.flink.util.CloseableIterator;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 public class QuickStart {
@@ -30,6 +25,8 @@ public class QuickStart {
         StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
 
         // Generate train data and predict data as DataStream.
+        HashMap<String, Integer> Mapping = new HashMap<>();
+        int j = 0;
         List<Row> records = new ArrayList<>();
         boolean header = true;
         try(BufferedReader br = new BufferedReader(new FileReader("beers.csv"))){
@@ -40,7 +37,11 @@ public class QuickStart {
                     continue;
                 }
                 String[] values = line.split(",");
-                records.add(Row.of(values));
+                if (values.length == 8){
+                    Mapping.putIfAbsent(values[5], j);
+                    values[5] = String.valueOf(j++);
+                    records.add(Row.of(values));
+                }
             }
         }
         catch (Exception ignored) {
@@ -56,22 +57,25 @@ public class QuickStart {
                             return false;
                     return true;
                 })
-                .map((MapFunction<Row, Row>) row -> Row.of(Vectors.dense(Double.parseDouble(row.getFieldAs(1)), Double.parseDouble(row.getFieldAs(2)), Double.parseDouble(row.getFieldAs(7))), row.getFieldAs(5).toString()),
+                .map((MapFunction<Row, Row>) row -> Row.of(Vectors.dense(Double.parseDouble(row.getFieldAs(1)), Double.parseDouble(row.getFieldAs(2)), Double.parseDouble(row.getFieldAs(7))), Integer.valueOf(row.getFieldAs(5))),
                         new RowTypeInfo(
                                 new TypeInformation[]{
                                         TypeInformation.of(DenseVector.class),
-                                        Types.STRING
+                                        Types.INT
                                 },
                                 new String[] {"features", "label"}
                         ));
 
         Table input = tEnv.fromDataStream(inputStream);
 
-        LogisticRegression reg = new LogisticRegression();
-        LogisticRegressionModel model = reg.fit(input);
+        NaiveBayes nb = new NaiveBayes()
+                        .setSmoothing(1.0)
+                        .setFeaturesCol("features")
+                        .setLabelCol("label");
+        NaiveBayesModel model = nb.fit(input);
+
         Table output = model.transform(input)[0];
 
         output.execute().print();
-
     }
 }
