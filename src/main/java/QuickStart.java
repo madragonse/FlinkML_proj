@@ -1,5 +1,8 @@
 import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.MapFunction;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.common.typeinfo.Types;
+import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.ml.clustering.kmeans.KMeans;
 import org.apache.flink.ml.clustering.kmeans.KMeansModel;
 import org.apache.flink.ml.classification.logisticregression.LogisticRegression;
@@ -19,7 +22,6 @@ import java.util.List;
 
 public class QuickStart {
     public static void main(String[] args) {
-        System.out.print("retr");
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
 
@@ -44,8 +46,15 @@ public class QuickStart {
 
         }
 
-        DataStream<String[]> immStream = env.fromCollection(records);
-        DataStream<DenseVector> inputStream2 = immStream
+        DataStream<String[]> immStream = env.fromCollection(records, new RowTypeInfo(
+                new TypeInformation[]{
+                        Types.DOUBLE,
+                        Types.DOUBLE,
+                        Types.DOUBLE
+                },
+                new String[] {"Feat1", "Feat2", "Pred"}
+        ));
+        DataStream<DenseVector> inputStream = immStream
                 .filter(new FilterFunction<String[]>() {
             @Override
             public boolean filter(String[] strings) throws Exception {
@@ -62,14 +71,9 @@ public class QuickStart {
                     }
                 });
 
-        DataStream<DenseVector> inputStream = env.fromElements(
-                Vectors.dense(0.0, 0.0),
-                Vectors.dense(0.0, 0.3),
-                Vectors.dense(0.3, 0.0),
-                Vectors.dense(9.0, 0.0),
-                Vectors.dense(9.0, 0.6),
-                Vectors.dense(9.6, 0.0)
-        );
+        inputStream.getType() =
+        Table input = tEnv.fromDataStream(inputStream).as(featuresCol)
+
 
         // Convert data from DataStream to Table, as Flink ML uses Table API.
         Table input = tEnv.fromDataStream(inputStream).as(featuresCol);
