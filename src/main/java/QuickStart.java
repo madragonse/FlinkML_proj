@@ -1,13 +1,16 @@
+import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.ml.clustering.kmeans.KMeans;
 import org.apache.flink.ml.clustering.kmeans.KMeansModel;
 import org.apache.flink.ml.classification.logisticregression.LogisticRegression;
 import org.apache.flink.ml.linalg.DenseVector;
 import org.apache.flink.ml.linalg.Vectors;
+import org.apache.flink.shaded.guava30.com.google.common.collect.MapDifference;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.Table;
@@ -24,9 +27,6 @@ public class QuickStart {
     public static void main(String[] args) {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
-
-        String featuresCol = "features";
-        String predictionCol = "prediction";
 
         // Generate train data and predict data as DataStream.
         List<Row> records = new ArrayList<>();
@@ -46,13 +46,7 @@ public class QuickStart {
 
         }
 
-        DataStream<Row> immStream = env.fromCollection(records, new RowTypeInfo(
-                new TypeInformation[]{
-                        TypeInformation.of(DenseVector.class),
-                        Types.INT
-                },
-                new String[] {"Feat1", "Feat2", "Pred"}
-        ));
+        DataStream<Row> immStream = env.fromCollection(records);
 
         DataStream<Row> inputStream = immStream
                 .filter(new FilterFunction<Row>() {
@@ -65,11 +59,18 @@ public class QuickStart {
             }
         })
                 .map(new MapFunction<Row, Row>() {
-                    @Override
-                    public Row map(Row row) throws Exception {
-                        return Row.of(Vectors.dense(Double.parseDouble(row.getFieldAs(1)), Double.parseDouble(row.getFieldAs(2))), Integer.parseInt(row.getFieldAs(7)));
-                    }
-                });
+                         @Override
+                         public Row map(Row row) throws Exception {
+                             return Row.of(Vectors.dense(Double.parseDouble(row.getFieldAs(1)), Double.parseDouble(row.getFieldAs(2))), Integer.parseInt(row.getFieldAs(7)));
+                         }
+                     },
+                        new RowTypeInfo(
+                            new TypeInformation[]{
+                                TypeInformation.of(DenseVector.class),
+                                Types.INT
+                            },
+                            new String[] {"Features", "Pred"}
+                        ));
 
         Table input = tEnv.fromDataStream(inputStream);
 
