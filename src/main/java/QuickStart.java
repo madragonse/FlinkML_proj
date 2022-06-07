@@ -44,6 +44,10 @@ public class QuickStart {
         // Use the K-means Model for predictions.
         Table output = model.transform(input)[0];
 
+        CloseableIterator<Row> it = output.execute().collect();
+        System.out.println(it.toString());
+
+
         // Extracts and displays prediction result.
         /*for (CloseableIterator<Row> it = output.execute().collect(); it.hasNext(); ) {
             Row row = it.next();
