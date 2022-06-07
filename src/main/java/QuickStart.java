@@ -1,3 +1,5 @@
+import org.apache.flink.api.common.functions.FilterFunction;
+import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.ml.clustering.kmeans.KMeans;
 import org.apache.flink.ml.clustering.kmeans.KMeansModel;
 import org.apache.flink.ml.classification.logisticregression.LogisticRegression;
@@ -42,6 +44,23 @@ public class QuickStart {
 
         }
 
+        DataStream<String[]> immStream = env.fromCollection(records);
+        DataStream<DenseVector> inputStream2 = immStream
+                .filter(new FilterFunction<String[]>() {
+            @Override
+            public boolean filter(String[] strings) throws Exception {
+                for (String s : strings)
+                    if (s.length() == 0)
+                        return false;
+                return true;
+            }
+        })
+                .map(new MapFunction<String[], DenseVector>() {
+                    @Override
+                    public DenseVector map(String[] strings) throws Exception {
+                        return Vectors.dense(Double.parseDouble(strings[1]), Double.parseDouble(strings[2]), Double.parseDouble(strings[7]));
+                    }
+                });
 
         DataStream<DenseVector> inputStream = env.fromElements(
                 Vectors.dense(0.0, 0.0),
